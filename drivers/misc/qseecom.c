@@ -229,9 +229,6 @@ struct qseecom_registered_app_list {
 	bool app_blocked;
 	u32  check_block;
 	u32  blocked_on_listener_id;
-#ifdef CONFIG_QSEECOM_DEBUG
-	u64 load_time;
-#endif
 };
 
 struct qseecom_registered_kclient_list {
@@ -446,21 +443,14 @@ static int qseecom_debug_show(struct seq_file *s, void *data)
 	unsigned long flags;
 
 	struct qseecom_registered_app_list *ptr_app;
-	u64 cur_time = sched_clock();
 
 	seq_puts(s, "Current Secure Apps info\n");
 	seq_puts(s, "id\tref\tname\tt_load\tt_run\tarch\tblocked\tblocked_on_listener_id\n");
 
 	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 
-	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head, list) {
-		seq_printf(s, "%d\t%d\t%s\t%lld\t%lld\t%d\t%d\t%d\n",
-			ptr_app->app_id, ptr_app->ref_cnt, ptr_app->app_name,
-			ptr_app->load_time, cur_time - ptr_app->load_time,
-			ptr_app->app_arch, ptr_app->app_blocked,
-			ptr_app->blocked_on_listener_id);
+	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head, list)
 		num++;
-	}
 
 	seq_printf(s, "loaded apps : %u/%u\n", num , max_loaded_app_num);
 
@@ -491,7 +481,7 @@ static int qseecom_update_info(bool log)
 
 	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head, list) {
 		if (log)
-			pr_info("%d : %s (r:%d) (t:%lld)\n", ptr_app->app_id, ptr_app->app_name, ptr_app->ref_cnt, ptr_app->load_time);
+			pr_info("%d : %s (r:%d)\n", ptr_app->app_id, ptr_app->app_name, ptr_app->ref_cnt);
 		num++;
 	}
 
@@ -2742,10 +2732,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		/* Deallocate the handle */
 		if (!IS_ERR_OR_NULL(ihandle))
 			ion_free(qseecom.ion_clnt, ihandle);
-
-#ifdef CONFIG_QSEECOM_DEBUG
-		entry->load_time = sched_clock();
-#endif
+            
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_add_tail(&entry->list, &qseecom.registered_app_list_head);
 		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
@@ -4948,9 +4935,6 @@ recheck:
 		entry->app_arch = app_arch;
 		entry->app_blocked = false;
 		entry->blocked_on_listener_id = 0;
-#ifdef CONFIG_QSEECOM_DEBUG
-		entry->load_time = sched_clock();
-#endif
 		entry->check_block = 0;
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_add_tail(&entry->list, &qseecom.registered_app_list_head);
@@ -5877,9 +5861,6 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				MAX_APP_NAME_SIZE);
 			entry->app_blocked = false;
 			entry->blocked_on_listener_id = 0;
-#ifdef CONFIG_QSEECOM_DEBUG
-			entry->load_time = sched_clock();
-#endif
 			entry->check_block = 0;
 			spin_lock_irqsave(&qseecom.registered_app_list_lock,
 				flags);
